@@ -6,23 +6,27 @@ class State(rx.State):
     resumen: str = ""
     error: str = ""
 
-    def analizar_csv(self, files: list[rx.UploadFile]):
-        try:
-            file = files[0]
-            content = file.file.read()
-            df = pd.read_csv(io.BytesIO(content))
+   def analizar_csv(self, files: list[rx.UploadFile]):
+    if rx.utils.exporting.is_exporting():
+        # No procesar durante el build/export
+        return
 
-            if "assetTitle" not in df.columns or "partnerRevenue" not in df.columns:
-                self.error = "El CSV debe contener las columnas 'assetTitle' y 'partnerRevenue'"
-                return
+    try:
+        file = files[0]
+        content = file.file.read()
+        df = pd.read_csv(io.BytesIO(content))
 
-            resumen = df.groupby("assetTitle")["partnerRevenue"].sum().reset_index()
-            resumen = resumen.sort_values(by="partnerRevenue", ascending=False)
+        if "assetTitle" not in df.columns or "partnerRevenue" not in df.columns:
+            self.error = "El CSV debe contener las columnas 'assetTitle' y 'partnerRevenue'"
+            return
 
-            self.resumen = resumen.to_string(index=False)
-            self.error = ""
-        except Exception as e:
-            self.error = str(e)
+        resumen = df.groupby("assetTitle")["partnerRevenue"].sum().reset_index()
+        resumen = resumen.sort_values(by="partnerRevenue", ascending=False)
+
+        self.resumen = resumen.to_string(index=False)
+        self.error = ""
+    except Exception as e:
+        self.error = str(e)
 
 def index():
     return rx.container(
