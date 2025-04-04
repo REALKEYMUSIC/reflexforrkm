@@ -1,29 +1,46 @@
-# Welcome to Reflex! This file outlines the steps to create a basic app
-
 import reflex as rx
+import pandas as pd
+import io
 
-from .pages import index
-from .pages import health
-from .pages import not_found
+class State(rx.State):
+    resumen: str = ""
+    error: str = ""
 
-from .api import root
+    def analizar_csv(self, files: list[rx.UploadFile]):
+        try:
+            file = files[0]
+            content = file.file.read()
+            df = pd.read_csv(io.BytesIO(content))
+
+            if "assetTitle" not in df.columns or "partnerRevenue" not in df.columns:
+                self.error = "El CSV debe contener las columnas 'assetTitle' y 'partnerRevenue'"
+                return
+
+            resumen = df.groupby("assetTitle")["partnerRevenue"].sum().reset_index()
+            resumen = resumen.sort_values(by="partnerRevenue", ascending=False)
+
+            self.resumen = resumen.to_string(index=False)
+            self.error = ""
+        except Exception as e:
+            self.error = str(e)
+
+def index():
+    return rx.container(
+        rx.vstack(
+            rx.heading("Análisis de CSV MLC 📊", size="lg"),
+            rx.text("Sube un archivo CSV con columnas 'assetTitle' y 'partnerRevenue'"),
+            rx.upload(
+                rx.button("Seleccionar CSV", color="blue"),
+                id="csv-uploader",
+                max_files=1,
+                on_upload=State.analizar_csv,
+            ),
+            rx.cond(State.error != "", rx.text(State.error, color="red")),
+            rx.cond(State.resumen != "", rx.code_block(State.resumen, language="text")),
+            spacing="4",
+        ),
+        padding="6",
+    )
 
 app = rx.App()
-
 app.add_page(index)
-app.add_page(health)
-
-app.api.add_api_route(
-    path="/",
-    endpoint=root
-)
-
-not_found_text = "The page you were looking for could not be found"
-
-app.add_custom_404_page(
-    title="404 - Page Not Found", 
-    description=not_found_text,
-    component=not_found(not_found_text)
-)
-
-app.compile()
