@@ -1,2 +1,2 @@
-reflex==0.3.2
-pandas
+reflex>=0.4.6
+pandas>=2.2.2
